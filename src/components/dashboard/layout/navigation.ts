@@ -1,12 +1,13 @@
 import type { ComponentType } from "react";
 import { Category, HomeTrendUp, ShoppingBag } from "iconsax-reactjs";
+import type { IconProps } from "iconsax-reactjs";
 import type { DashboardSection } from "../types";
 
 export interface DashboardNavigationItem {
   id: DashboardSection;
   title: string;
   caption: string;
-  Icon: ComponentType<any>;
+  Icon: ComponentType<IconProps>;
 }
 
 export const dashboardNavigation: DashboardNavigationItem[] = [

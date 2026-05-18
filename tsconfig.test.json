@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "strict": true,
+    "outDir": "./node_modules/.tmp/test-build",
+    "rootDir": "."
+  },
+  "include": ["src/lib/currency.ts", "tests/**/*.ts"]
+}

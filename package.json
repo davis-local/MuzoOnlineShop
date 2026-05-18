@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "seed:demo": "node scripts/seed-demo-data.mjs"
+    "seed:demo": "node scripts/seed-demo-data.mjs",
+    "test": "tsc -p tsconfig.test.json && node --test node_modules/.tmp/test-build/tests/*.test.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

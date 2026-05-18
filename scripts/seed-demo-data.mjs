@@ -3,19 +3,15 @@
 /**
  * Demo seed script for Muzo Online Shop.
  *
- * You can edit these two fields directly before running:
- * 1. `apiUrl`
- * 2. `token`
+ * You can edit `apiUrl` directly before running, or override it from the terminal.
+ * The API token must be provided from the terminal:
  *
- * You can also override them from the terminal:
  * MUZO_API_URL=http://localhost:5079 MUZO_API_TOKEN=your-token npm run seed:demo
  */
 
 const CONFIG = {
   apiUrl: process.env.MUZO_API_URL ?? "http://localhost:5079",
-  token:
-    process.env.MUZO_API_TOKEN ??
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYXZpc0B0ZXN0LmNvbSIsImVtYWlsIjoiZGF2aXNAdGVzdC5jb20iLCJqdGkiOiJkMjQ1Mzc0NS05NjViLTQ1MDUtODIwYS0xNGFmMDFiMzIzY2UiLCJleHAiOjE3NzkxMDcwOTl9.kelbTVq8Ee_wI3hh0TauY7jm2usq5rA-gn1IECJVnd0",
+  token: process.env.MUZO_API_TOKEN ?? "",
   categoryCount: 30,
   productCount: 200,
   productPageSize: 100,

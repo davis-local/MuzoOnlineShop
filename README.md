@@ -116,6 +116,7 @@ By default the script plans:
 
 ```bash
 npm run lint
+npm test
 npm run build
 npm run preview
 dotnet build server/MuzoOnline.Api/MuzoOnline.Api.csproj
