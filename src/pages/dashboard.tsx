@@ -10,12 +10,14 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import CategoryManagementSection from "../components/dashboard/categories/CategoryManagementSection";
+import CategoryFormDialog from "../components/dashboard/categories/CategoryFormDialog";
 import DashboardShell from "../components/dashboard/layout/DashboardShell";
 import OverviewSection from "../components/dashboard/overview/OverviewSection";
 import DeleteProductDialog from "../components/dashboard/products/DeleteProductDialog";
 import ProductFormDialog from "../components/dashboard/products/ProductFormDialog";
 import ProductManagementSection from "../components/dashboard/products/ProductManagementSection";
 import type {
+  CategoryViewMode,
   DashboardSection,
   ProductViewMode,
 } from "../components/dashboard/types";
@@ -43,6 +45,9 @@ interface DashboardPageProps {
   onLogout: () => void;
 }
 
+const OVERVIEW_PAGE_SIZE = 500;
+const PRODUCT_PAGE_SIZE = 10;
+
 function getSectionCopy(section: DashboardSection) {
   switch (section) {
     case "products":
@@ -67,30 +72,25 @@ function getSectionCopy(section: DashboardSection) {
   }
 }
 
-function matchesProductSearch(product: ProductDto, query: string) {
-  const normalizedQuery = query.trim().toLowerCase();
-
-  if (!normalizedQuery) {
-    return true;
-  }
-
-  return [product.name, product.description, product.sku].some((value) =>
-    value.toLowerCase().includes(normalizedQuery),
-  );
-}
-
 export default function DashboardPage({ onLogout }: DashboardPageProps) {
   const [activeSection, setActiveSection] =
     useState<DashboardSection>("overview");
   const [allProducts, setAllProducts] = useState<ProductDto[]>([]);
+  const [pagedProducts, setPagedProducts] = useState<ProductDto[]>([]);
   const [categories, setCategories] = useState<CategoryDto[]>([]);
   const [categoryTree, setCategoryTree] = useState<CategoryNodeDto[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState("");
+  const [productSearchQuery, setProductSearchQuery] = useState<string | undefined>();
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
+  const [productPage, setProductPage] = useState(1);
+  const [hasNextProductPage, setHasNextProductPage] = useState(false);
+  const [categoryViewMode, setCategoryViewMode] =
+    useState<CategoryViewMode>("tree");
   const [viewMode, setViewMode] = useState<ProductViewMode>("grid");
   const [productFormOpen, setProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductDto | null>(null);
@@ -100,12 +100,20 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
     useState<ProductDto | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [categorySubmitting, setCategorySubmitting] = useState(false);
   const [categorySubmitError, setCategorySubmitError] = useState<string | null>(
     null,
   );
 
   const deferredSearchValue = useDeferredValue(searchValue);
+  const normalizedSearchValue = deferredSearchValue.trim();
+  const searchNeedsMoreCharacters =
+    normalizedSearchValue.length > 0 && normalizedSearchValue.length < 3;
+  const searchSyncPending =
+    (normalizedSearchValue.length >= 3 &&
+      normalizedSearchValue !== productSearchQuery) ||
+    (normalizedSearchValue.length < 3 && productSearchQuery !== undefined);
 
   const handleUnauthorized = useCallback(
     (error: unknown) => {
@@ -120,13 +128,61 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
     [onLogout],
   );
 
-  const refreshProducts = useCallback(async () => {
+  const refreshOverviewProducts = useCallback(async () => {
+    setOverviewLoading(true);
+
+    try {
+      const products = await getProducts({
+        page: 1,
+        pageSize: OVERVIEW_PAGE_SIZE,
+      });
+      setAllProducts(products);
+    } catch (error) {
+      if (handleUnauthorized(error)) {
+        return;
+      }
+
+      setProductsError(
+        error instanceof ApiError ? error.message : "Unable to load products.",
+      );
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, [handleUnauthorized]);
+
+  const refreshProductPage = useCallback(async () => {
     setProductsLoading(true);
     setProductsError(null);
 
+    const baseQuery = {
+      categoryId:
+        selectedCategoryId === "all" ? undefined : selectedCategoryId,
+      page: productPage,
+      pageSize: PRODUCT_PAGE_SIZE,
+      search: productSearchQuery,
+    };
+
     try {
-      const products = await getProducts({ page: 1, pageSize: 100 });
-      setAllProducts(products);
+      const products = await getProducts(baseQuery);
+
+      if (products.length === 0 && productPage > 1) {
+        setProductPage((currentPage) => Math.max(1, currentPage - 1));
+        return;
+      }
+
+      setPagedProducts(products);
+
+      if (products.length < PRODUCT_PAGE_SIZE) {
+        setHasNextProductPage(false);
+        return;
+      }
+
+      const nextProducts = await getProducts({
+        ...baseQuery,
+        page: productPage + 1,
+      });
+
+      setHasNextProductPage(nextProducts.length > 0);
     } catch (error) {
       if (handleUnauthorized(error)) {
         return;
@@ -138,7 +194,7 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
     } finally {
       setProductsLoading(false);
     }
-  }, [handleUnauthorized]);
+  }, [handleUnauthorized, productPage, productSearchQuery, selectedCategoryId]);
 
   const refreshCategories = useCallback(async () => {
     setCategoriesLoading(true);
@@ -167,13 +223,58 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
     }
   }, [handleUnauthorized]);
 
-  const loadDashboardData = useCallback(async () => {
-    await Promise.all([refreshProducts(), refreshCategories()]);
-  }, [refreshCategories, refreshProducts]);
+  useEffect(() => {
+    if (normalizedSearchValue.length === 0) {
+      setProductSearchQuery(undefined);
+      setProductPage(1);
+      return;
+    }
+
+    if (normalizedSearchValue.length < 3) {
+      setProductSearchQuery(undefined);
+      setProductPage(1);
+      return;
+    }
+
+    setProductSearchQuery(normalizedSearchValue);
+    setProductPage(1);
+  }, [normalizedSearchValue]);
 
   useEffect(() => {
-    void loadDashboardData();
-  }, [loadDashboardData]);
+    if (activeSection !== "overview") {
+      return;
+    }
+
+    void Promise.all([refreshOverviewProducts(), refreshCategories()]);
+  }, [activeSection, refreshCategories, refreshOverviewProducts]);
+
+  useEffect(() => {
+    if (activeSection !== "categories") {
+      return;
+    }
+
+    void refreshCategories();
+  }, [activeSection, refreshCategories]);
+
+  useEffect(() => {
+    if (activeSection !== "products") {
+      return;
+    }
+
+    void refreshCategories();
+  }, [activeSection, refreshCategories]);
+
+  useEffect(() => {
+    if (activeSection !== "products") {
+      return;
+    }
+
+    if (searchSyncPending) {
+      return;
+    }
+
+    void refreshProductPage();
+  }, [activeSection, refreshProductPage, searchSyncPending]);
 
   const categoryNameById = useMemo(() => {
     return categories.reduce<Record<string, string>>(
@@ -184,21 +285,6 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
       {},
     );
   }, [categories]);
-
-  const filteredProducts = useMemo(() => {
-    return allProducts
-      .filter((product) => matchesProductSearch(product, deferredSearchValue))
-      .filter((product) =>
-        selectedCategoryId === "all"
-          ? true
-          : product.categoryId === selectedCategoryId,
-      )
-      .sort(
-        (left, right) =>
-          new Date(right.updatedAt).getTime() -
-          new Date(left.updatedAt).getTime(),
-      );
-  }, [allProducts, deferredSearchValue, selectedCategoryId]);
 
   const handleOpenAddProduct = () => {
     setEditingProduct(null);
@@ -231,7 +317,7 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
         await createProduct(payload);
       }
 
-      await refreshProducts();
+      await Promise.all([refreshOverviewProducts(), refreshProductPage()]);
       handleCloseProductForm();
     } catch (error) {
       if (handleUnauthorized(error)) {
@@ -256,7 +342,7 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
 
     try {
       await deleteProduct(productPendingDelete.id);
-      await refreshProducts();
+      await Promise.all([refreshOverviewProducts(), refreshProductPage()]);
       setProductPendingDelete(null);
     } catch (error) {
       if (handleUnauthorized(error)) {
@@ -271,6 +357,16 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
     }
   };
 
+  const handleOpenCategoryForm = () => {
+    setCategorySubmitError(null);
+    setCategoryFormOpen(true);
+  };
+
+  const handleCloseCategoryForm = () => {
+    setCategorySubmitError(null);
+    setCategoryFormOpen(false);
+  };
+
   const handleCreateCategory = async (payload: CreateCategoryRequest) => {
     setCategorySubmitting(true);
     setCategorySubmitError(null);
@@ -278,6 +374,7 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
     try {
       await createCategory(payload);
       await refreshCategories();
+      handleCloseCategoryForm();
     } catch (error) {
       if (handleUnauthorized(error)) {
         return;
@@ -301,7 +398,7 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
 
   const sectionCopy = getSectionCopy(activeSection);
   const dashboardBusy =
-    productsLoading &&
+    overviewLoading &&
     categoriesLoading &&
     allProducts.length === 0 &&
     categories.length === 0;
@@ -314,6 +411,8 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
       primaryAction={
         activeSection === "products"
           ? { label: "Add Product", onClick: handleOpenAddProduct }
+          : activeSection === "categories"
+            ? { label: "Add Category", onClick: handleOpenCategoryForm }
           : undefined
       }
       subtitle={sectionCopy.subtitle}
@@ -348,22 +447,32 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
         <ProductManagementSection
           categories={categories}
           categoryNameById={categoryNameById}
+          currentPage={productPage}
           error={productsError}
+          hasNextPage={hasNextProductPage}
           loading={productsLoading}
           onAddProduct={handleOpenAddProduct}
-          onCategoryChange={setSelectedCategoryId}
+          onCategoryChange={(categoryId) => {
+            setSelectedCategoryId(categoryId);
+            setProductPage(1);
+          }}
           onDeleteProduct={(product) => {
             setDeleteError(null);
             setProductPendingDelete(product);
           }}
           onEditProduct={handleOpenEditProduct}
+          onNextPage={() => setProductPage((currentPage) => currentPage + 1)}
+          onPreviousPage={() =>
+            setProductPage((currentPage) => Math.max(1, currentPage - 1))
+          }
           onSearchChange={(value) => {
             startTransition(() => {
               setSearchValue(value);
             });
           }}
           onViewModeChange={setViewMode}
-          products={filteredProducts}
+          products={pagedProducts}
+          searchNeedsMoreCharacters={searchNeedsMoreCharacters}
           searchValue={searchValue}
           selectedCategoryId={selectedCategoryId}
           viewMode={viewMode}
@@ -375,9 +484,9 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
           categories={categories}
           categoryTree={categoryTree}
           error={categoriesError}
-          onCreateCategory={handleCreateCategory}
-          submitError={categorySubmitError}
-          submitting={categorySubmitting}
+          loading={categoriesLoading}
+          onViewModeChange={setCategoryViewMode}
+          viewMode={categoryViewMode}
         />
       ) : null}
 
@@ -389,6 +498,15 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
         product={editingProduct}
         submitError={productFormError}
         submitting={productFormSubmitting}
+      />
+
+      <CategoryFormDialog
+        categories={categories}
+        onClose={handleCloseCategoryForm}
+        onSubmit={handleCreateCategory}
+        open={categoryFormOpen}
+        submitError={categorySubmitError}
+        submitting={categorySubmitting}
       />
 
       <DeleteProductDialog

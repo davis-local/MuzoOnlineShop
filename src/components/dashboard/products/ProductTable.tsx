@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Avatar from "@mui/material/Avatar";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
+import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
-import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -22,6 +21,7 @@ import ProductEmptyState from "./ProductEmptyState";
 interface ProductTableProps {
   categoryNameById: Record<string, string>;
   error: string | null;
+  loading: boolean;
   onAddProduct: () => void;
   onDelete: (product: ProductDto) => void;
   onEdit: (product: ProductDto) => void;
@@ -31,25 +31,28 @@ interface ProductTableProps {
 export default function ProductTable({
   categoryNameById,
   error,
+  loading,
   onAddProduct,
   onDelete,
   onEdit,
   products,
 }: ProductTableProps) {
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(8);
-
-  useEffect(() => {
-    setPage(0);
-  }, [products.length]);
-
-  const pagedProducts = useMemo(() => {
-    const start = page * rowsPerPage;
-    return products.slice(start, start + rowsPerPage);
-  }, [page, products, rowsPerPage]);
-
   if (error) {
     return <Alert severity="error">{error}</Alert>;
+  }
+
+  if (loading) {
+    return (
+      <MainCard content={false}>
+        <LinearProgress />
+        <Stack spacing={1} sx={{ p: 2.5 }}>
+          <Typography variant="subtitle2">Loading products...</Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Fetching the next set of products from the API.
+          </Typography>
+        </Stack>
+      </MainCard>
+    );
   }
 
   if (products.length === 0) {
@@ -71,7 +74,7 @@ export default function ProductTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {pagedProducts.map((product) => {
+            {products.map((product) => {
               const initials = product.name
                 .split(" ")
                 .filter(Boolean)
@@ -130,19 +133,6 @@ export default function ProductTable({
           </TableBody>
         </Table>
       </TableContainer>
-
-      <TablePagination
-        component="div"
-        count={products.length}
-        onPageChange={(_, nextPage) => setPage(nextPage)}
-        onRowsPerPageChange={(event) => {
-          setRowsPerPage(Number(event.target.value));
-          setPage(0);
-        }}
-        page={page}
-        rowsPerPage={rowsPerPage}
-        rowsPerPageOptions={[5, 8, 12]}
-      />
     </MainCard>
   );
 }
