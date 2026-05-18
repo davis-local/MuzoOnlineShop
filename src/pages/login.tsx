@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { SyntheticEvent } from "react";
 import * as Yup from "yup";
 import { Formik } from "formik";
+import { useNavigate } from "react-router-dom";
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -14,10 +15,21 @@ import InputLabel from "@mui/material/InputLabel";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import IconButton from "@mui/material/IconButton";
 import { Eye, EyeSlash } from "iconsax-reactjs";
+import { ApiError, login } from "../lib/api";
+import type { LoginRequest } from "../types/api";
 
-export default function LoginPage() {
+interface LoginFormValues extends LoginRequest {
+  submit: string | null;
+}
+
+interface LoginPageProps {
+  onLoginSuccess: () => void;
+}
+
+export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [checked, setChecked] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
 
   const handleClickShowPassword = () => setShowPassword(!showPassword);
   const handleMouseDownPassword = (e: SyntheticEvent) => e.preventDefault();
@@ -55,11 +67,12 @@ export default function LoginPage() {
 
           <Grid item xs={12}>
             <Formik
+              initialStatus={undefined}
               initialValues={{
                 email: "davis@test.com",
                 password: "davis@test",
                 submit: null,
-              }}
+              } satisfies LoginFormValues}
               validationSchema={Yup.object().shape({
                 email: Yup.string()
                   .email("Must be a valid email")
@@ -77,14 +90,24 @@ export default function LoginPage() {
               onSubmit={async (
                 values,
                 { setErrors, setStatus, setSubmitting },
-              ) => {
+                ) => {
                 try {
-                  console.log("Login attempt:", values.email);
+                  await login({
+                    email: values.email,
+                    password: values.password,
+                  });
+                  onLoginSuccess();
                   setStatus({ success: true });
                   setSubmitting(false);
-                } catch (err: any) {
+                  navigate("/dashboard", { replace: true });
+                } catch (err) {
+                  const message =
+                    err instanceof ApiError
+                      ? err.message
+                      : "Unable to sign in right now.";
+
                   setStatus({ success: false });
-                  setErrors({ submit: err.message });
+                  setErrors({ submit: message });
                   setSubmitting(false);
                 }
               }}
@@ -95,6 +118,7 @@ export default function LoginPage() {
                 handleChange,
                 handleSubmit,
                 isSubmitting,
+                status,
                 touched,
                 values,
               }) => (
@@ -199,6 +223,14 @@ export default function LoginPage() {
                     {errors.submit && (
                       <Grid item xs={12}>
                         <FormHelperText error>{errors.submit}</FormHelperText>
+                      </Grid>
+                    )}
+
+                    {status?.success && (
+                      <Grid item xs={12}>
+                        <FormHelperText sx={{ color: "#2A9561" }}>
+                          Login successful. Token saved for API requests.
+                        </FormHelperText>
                       </Grid>
                     )}
 
