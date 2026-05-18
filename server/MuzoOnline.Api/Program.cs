@@ -47,6 +47,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var authorizationHeader = context.Request.Headers.Authorization.ToString().Trim();
+
+                if (string.IsNullOrWhiteSpace(authorizationHeader))
+                {
+                    return Task.CompletedTask;
+                }
+
+                context.Token = authorizationHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                    ? authorizationHeader["Bearer ".Length..].Trim()
+                    : authorizationHeader;
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -65,17 +84,28 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
+        Type = Microsoft.OpenApi.SecuritySchemeType.ApiKey,
+        In = Microsoft.OpenApi.ParameterLocation.Header,
+        Description = "Paste the JWT token here. 'Bearer ' is optional."
     });
 
-    options.OperationFilter<MuzoOnline.Api.Extensions.SwaggerAuthorizeCheckOperationFilter>();
+    options.AddSecurityRequirement(_ => new Microsoft.OpenApi.OpenApiSecurityRequirement
+    {
+        [new Microsoft.OpenApi.OpenApiSecuritySchemeReference(
+            "Bearer",
+            new Microsoft.OpenApi.OpenApiDocument(),
+            null)
+        {
+            Reference = new Microsoft.OpenApi.OpenApiReferenceWithDescription
+            {
+                Id = "Bearer",
+                Type = Microsoft.OpenApi.ReferenceType.SecurityScheme
+            }
+        }] = []
+    });
 });
 
 var app = builder.Build();
@@ -85,7 +115,11 @@ app.UseMiddleware<CustomRequestTimingMiddleware>();
 app.UseCors("FrontEndEnv");
 
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(options =>
+{
+    options.EnablePersistAuthorization();
+    options.UseRequestInterceptor("function (request) { const authorized = window.ui?.authSelectors?.authorized?.(); const authEntries = authorized?.toJS ? Object.values(authorized.toJS()) : []; const authEntry = authEntries[0]; const tokenValue = authEntry?.value ?? authEntry; if (typeof tokenValue === 'string' && tokenValue.trim().length > 0) { request.headers = request.headers || {}; request.headers.Authorization = tokenValue.trim().startsWith('Bearer ') ? tokenValue.trim() : 'Bearer ' + tokenValue.trim(); } return request; }");
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
