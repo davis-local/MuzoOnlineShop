@@ -19,17 +19,31 @@ public sealed class CustomRequestTimingMiddleware
     {
         var stopwatch = Stopwatch.StartNew();
 
-        await _next(context);
+        context.Response.OnStarting(state =>
+        {
+            var (httpContext, sw) = ((HttpContext, Stopwatch))state!;
 
-        stopwatch.Stop();
+            if (!httpContext.Response.HasStarted)
+            {
+                httpContext.Response.Headers["X-Request-Duration-ms"] =
+                    sw.ElapsedMilliseconds.ToString();
+            }
 
-        context.Response.Headers["X-Request-Duration-ms"] =
-            stopwatch.ElapsedMilliseconds.ToString();
+            return Task.CompletedTask;
+        }, (context, stopwatch));
 
-        _logger.LogInformation(
-            "Request {Method} {Path} completed in {Elapsed}ms",
-            context.Request.Method,
-            context.Request.Path,
-            stopwatch.ElapsedMilliseconds);
+        try
+        {
+            await _next(context);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            _logger.LogInformation(
+                "Request {Method} {Path} completed in {Elapsed}ms",
+                context.Request.Method,
+                context.Request.Path,
+                stopwatch.ElapsedMilliseconds);
+        }
     }
 }

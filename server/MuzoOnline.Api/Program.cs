@@ -1,41 +1,60 @@
+using Microsoft.EntityFrameworkCore;
+using MuzoOnline.Api.Context;
+using MuzoOnline.Api.Middleware;
+using MuzoOnline.Api.Models;
+using MuzoOnline.Api.Repository;
+using MuzoOnline.Api.Service;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddControllers();
+
+builder.Services.AddDbContext<MuzoDbContext>(options =>
+{
+    options.UseInMemoryDatabase("MuzoOnlineDbProd");
+});
+
+builder.Services.AddScoped<IRepository<Product>, ProductRepository>();
+builder.Services.AddSingleton<IRepository<Category>, InMemoryCategoryRepository>();
+
+builder.Services.AddSingleton<ProductSearchEngine<Product>>(_ =>
+    new ProductSearchEngine<Product>(new[]
+    {
+        new SearchField<Product> { Selector = product => product.Name, Weight = 5 },
+        new SearchField<Product> { Selector = product => product.SKU, Weight = 4 },
+        new SearchField<Product> { Selector = product => product.Description, Weight = 2 }
+    }));
+
+builder.Services.AddSingleton<ProductSearchCache>();
+builder.Services.AddScoped<CategoryTreeTool>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontEndEnv", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+app.UseMiddleware<CustomRequestTimingMiddleware>();
 
-app.UseHttpsRedirection();
+app.UseCors("FrontEndEnv");
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.UseSwagger();
+app.UseSwaggerUI();
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+app.MapControllers();
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+public partial class Program
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
 }
