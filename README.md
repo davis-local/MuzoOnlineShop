@@ -1,109 +1,122 @@
 # MuzoOnlineShop
 
-Muzo Online Shop - We sell only the best products
+Muzo Online Shop is a small product management dashboard with a React + Vite frontend and an ASP.NET Core backend API.
 
-# React + TypeScript + Vite (FRONTEND BUILD INSTRUCTIONS)
+## Prerequisites
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+- Node.js and npm
+- .NET SDK 10
 
-## Getting Started
+## Install Frontend Dependencies
 
-1. Install dependencies:
+From the project root:
 
 ```bash
 npm install
 ```
 
-2. Start the development server:
+## Run The Backend API
+
+In one terminal, start the ASP.NET Core API:
+
+```bash
+dotnet restore server/MuzoOnline.Api/MuzoOnline.Api.csproj
+dotnet run --project server/MuzoOnline.Api/MuzoOnline.Api.csproj
+```
+
+The backend is configured to run at:
+
+```text
+http://localhost:5079
+```
+
+Swagger is available at:
+
+```text
+http://localhost:5079/swagger
+```
+
+The backend currently uses an in-memory database, so products are reset when the API process restarts.
+
+## Run The Frontend
+
+In a second terminal, start the Vite app:
 
 ```bash
 npm run dev
 ```
 
-3. Build for production:
+Open the frontend at the URL Vite prints, usually:
 
-```bash
-npm run build
+```text
+http://localhost:5173
 ```
 
-4. Preview the production build locally:
+The frontend sends API requests to `http://localhost:5079` by default. To use a different backend URL:
 
 ```bash
-npm run preview
+VITE_API_BASE_URL=http://localhost:5079 npm run dev
 ```
 
-5. Run lint checks:
+## Login Details
+
+The login form is prefilled in the UI, but the credentials are:
+
+```text
+Email: davis@test.com
+Password: davis@test
+```
+
+After a successful login, the frontend stores the JWT in browser local storage using this key:
+
+```text
+muzo.auth.token
+```
+
+## Extract The Token After Login
+
+Use the UI login first, then extract the token from the browser.
+
+Option 1: browser DevTools console:
+
+```js
+localStorage.getItem("muzo.auth.token")
+```
+
+Option 2: browser DevTools Application tab:
+
+1. Open DevTools.
+2. Go to `Application`.
+3. Open `Local Storage`.
+4. Select `http://localhost:5173`.
+5. Copy the value for `muzo.auth.token`.
+
+The token expires after about 1 hour. If the seed script returns `401 Unauthorized`, log in again and copy a fresh token.
+
+## Seed Demo Data
+
+Keep the backend API running, then log in through the frontend and copy the JWT token as described above.
+
+Run the seed script from the project root:
+
+```bash
+MUZO_API_URL=http://localhost:5079 MUZO_API_TOKEN=your-token npm run seed:demo
+```
+
+The script creates demo categories and products through the backend API. It is safe to run more than once: products with existing demo SKUs are skipped.
+
+By default the script plans:
+
+```text
+30 categories
+200 products
+```
+
+## Useful Commands
 
 ```bash
 npm run lint
-```
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x";
-import reactDom from "eslint-plugin-react-dom";
-
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs["recommended-typescript"],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+npm run build
+npm run preview
+dotnet build server/MuzoOnline.Api/MuzoOnline.Api.csproj
 ```
