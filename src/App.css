@@ -38,13 +38,16 @@ input {
 
 .app-shell {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+  width: 100%;
 }
 
 .login-page-shell {
   width: min(520px, 100%);
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  padding: 24px;
 }
 
 .login-card {
