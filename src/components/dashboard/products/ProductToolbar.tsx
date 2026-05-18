@@ -16,7 +16,6 @@ interface ProductToolbarProps {
   onSearchChange: (value: string) => void;
   onViewModeChange: (mode: ProductViewMode) => void;
   productCount: number;
-  searchNeedsMoreCharacters: boolean;
   searchValue: string;
   selectedCategoryId: string;
   viewMode: ProductViewMode;
@@ -29,7 +28,6 @@ export default function ProductToolbar({
   onSearchChange,
   onViewModeChange,
   productCount,
-  searchNeedsMoreCharacters,
   searchValue,
   selectedCategoryId,
   viewMode,
@@ -43,7 +41,7 @@ export default function ProductToolbar({
         >
           <TextField
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search Products (3+ chars)"
+            placeholder="Search products"
             size="medium"
             sx={{ flex: 1, minWidth: 240 }}
             value={searchValue}
@@ -98,9 +96,8 @@ export default function ProductToolbar({
         </Stack>
 
         <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          {searchNeedsMoreCharacters
-            ? "Type at least 3 characters before API search starts."
-            : `Showing ${productCount} product${productCount === 1 ? "" : "s"} on the current page.`}
+          Showing {productCount} product{productCount === 1 ? "" : "s"} on the
+          current page.
         </Typography>
       </Stack>
     </MainCard>

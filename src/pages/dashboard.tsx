@@ -1,7 +1,5 @@
 import {
-  startTransition,
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useState,
@@ -85,7 +83,6 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
   const [productsError, setProductsError] = useState<string | null>(null);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState("");
-  const [productSearchQuery, setProductSearchQuery] = useState<string | undefined>();
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const [productPage, setProductPage] = useState(1);
   const [hasNextProductPage, setHasNextProductPage] = useState(false);
@@ -106,14 +103,9 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
     null,
   );
 
-  const deferredSearchValue = useDeferredValue(searchValue);
-  const normalizedSearchValue = deferredSearchValue.trim();
-  const searchNeedsMoreCharacters =
-    normalizedSearchValue.length > 0 && normalizedSearchValue.length < 3;
-  const searchSyncPending =
-    (normalizedSearchValue.length >= 3 &&
-      normalizedSearchValue !== productSearchQuery) ||
-    (normalizedSearchValue.length < 3 && productSearchQuery !== undefined);
+  const normalizedSearchValue = searchValue.trim();
+  const productSearchQuery =
+    normalizedSearchValue.length > 0 ? normalizedSearchValue : undefined;
 
   const handleUnauthorized = useCallback(
     (error: unknown) => {
@@ -224,23 +216,6 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
   }, [handleUnauthorized]);
 
   useEffect(() => {
-    if (normalizedSearchValue.length === 0) {
-      setProductSearchQuery(undefined);
-      setProductPage(1);
-      return;
-    }
-
-    if (normalizedSearchValue.length < 3) {
-      setProductSearchQuery(undefined);
-      setProductPage(1);
-      return;
-    }
-
-    setProductSearchQuery(normalizedSearchValue);
-    setProductPage(1);
-  }, [normalizedSearchValue]);
-
-  useEffect(() => {
     if (activeSection !== "overview") {
       return;
     }
@@ -269,12 +244,8 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
       return;
     }
 
-    if (searchSyncPending) {
-      return;
-    }
-
     void refreshProductPage();
-  }, [activeSection, refreshProductPage, searchSyncPending]);
+  }, [activeSection, refreshProductPage]);
 
   const categoryNameById = useMemo(() => {
     return categories.reduce<Record<string, string>>(
@@ -466,13 +437,11 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
             setProductPage((currentPage) => Math.max(1, currentPage - 1))
           }
           onSearchChange={(value) => {
-            startTransition(() => {
-              setSearchValue(value);
-            });
+            setSearchValue(value);
+            setProductPage(1);
           }}
           onViewModeChange={setViewMode}
           products={pagedProducts}
-          searchNeedsMoreCharacters={searchNeedsMoreCharacters}
           searchValue={searchValue}
           selectedCategoryId={selectedCategoryId}
           viewMode={viewMode}

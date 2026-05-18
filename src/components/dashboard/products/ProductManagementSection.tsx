@@ -22,7 +22,6 @@ interface ProductManagementSectionProps {
   onSearchChange: (value: string) => void;
   onViewModeChange: (mode: ProductViewMode) => void;
   products: ProductDto[];
-  searchNeedsMoreCharacters: boolean;
   searchValue: string;
   selectedCategoryId: string;
   viewMode: ProductViewMode;
@@ -44,7 +43,6 @@ export default function ProductManagementSection({
   onSearchChange,
   onViewModeChange,
   products,
-  searchNeedsMoreCharacters,
   searchValue,
   selectedCategoryId,
   viewMode,
@@ -58,7 +56,6 @@ export default function ProductManagementSection({
         onSearchChange={onSearchChange}
         onViewModeChange={onViewModeChange}
         productCount={products.length}
-        searchNeedsMoreCharacters={searchNeedsMoreCharacters}
         searchValue={searchValue}
         selectedCategoryId={selectedCategoryId}
         viewMode={viewMode}
