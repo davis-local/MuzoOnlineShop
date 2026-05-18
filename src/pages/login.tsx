@@ -32,7 +32,7 @@ export default function LoginPage() {
               component="h1"
               sx={{ fontSize: { xs: "2.5rem", sm: "3.5rem" }, fontWeight: 900 }}
             >
-              <span className="brand-muzi">Muzi</span>
+              <span className="brand-muzi">Muzo</span>
               <span className="brand-online">Online</span>
             </Typography>
           </Grid>
