@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MuzoOnline.Api.DataTransferObjects;
 using MuzoOnline.Api.Models;
@@ -8,6 +9,7 @@ namespace MuzoOnline.Api.Controllers;
 
 [ApiController]
 [Route("api/categories")]
+[Authorize]
 public sealed class CategoriesController : ControllerBase
 {
     private readonly IRepository<Category> _categoryRepository;

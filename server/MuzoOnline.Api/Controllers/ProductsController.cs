@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MuzoOnline.Api.DataTransferObjects;
 using MuzoOnline.Api.Extensions;
@@ -10,6 +11,7 @@ namespace MuzoOnline.Api.Controllers;
 
 [ApiController]
 [Route("api/products")]
+[Authorize]
 public sealed class ProductsController : ControllerBase
 {
     private readonly IRepository<Product> _productRepository;
